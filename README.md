@@ -30,17 +30,18 @@ Built with **FastAPI** · **InsightFace (ArcFace)** · **FAISS** · **MLflow** �
 └─────────────────┘                   │  /selfies (static)       │
                                       └────────────┬─────────────┘
                                                    │
-                         ┌─────────────────────────┼──────────────────────┐
-                         │                         │                      │
-                   SQLite DB               ML Pipeline              MLflow
-                   data/app.db      InsightFace + FAISS        mlflow_tracking/
+                   ┌───────────────────────────────┼──────────────────────────┐
+                   │                               │                          │
+             SQLite DB                       ML Pipeline              MLflow Server
+             data/app.db              InsightFace + FAISS            :5000 (UI + API)
+                                                                   mlflow_tracking/
 ```
 
 ### Data Flow
 
 1. User registers with a **selfie** → stored at `data/selfies/{user_id}.jpg`
 2. User uploads a **ZIP of event photos** → stored at `data/uploads/{job_id}.zip`
-3. Background task runs the **ML pipeline**:
+3. Background task runs the **ML pipeline** (progress reported in real-time via `/jobs/{id}/status`):
    - Detects & embeds every face in the ZIP with **ArcFace (buffalo_l)**
    - Builds a **FAISS IndexFlatIP** (cosine similarity via inner product)
    - Searches the index using the selfie embedding (threshold `0.40`)
@@ -60,15 +61,20 @@ cd automated_photo_curator-final
 cp .env.example .env
 # Edit .env → set a strong SECRET_KEY
 
-# 3. Build and start all services
-docker compose up --build
+# 3. Create required host directories
+mkdir mlflow_tracking
 
-# Backend  → http://localhost:8000
-# Frontend → http://localhost:8501
-# API docs → http://localhost:8000/docs
+# 4. Build and start all services
+docker compose up --build
 ```
 
-> **Note:** The first `docker compose build` will take a few minutes because it
+| Service | URL |
+|---------|-----|
+| API (Swagger UI) | http://localhost:**8001**/docs |
+| Streamlit Frontend | http://localhost:8501 |
+| MLflow UI | http://localhost:5000 |
+
+> **Note:** The first `docker compose build` will take several minutes because it
 > pre-downloads the InsightFace `buffalo_l` model (~300 MB) into the image layer.
 > Subsequent builds use the Docker cache.
 
@@ -76,10 +82,10 @@ docker compose up --build
 
 All persistent files live in host-mounted directories:
 
-| Host path          | Container path         | Contents                        |
-|--------------------|------------------------|---------------------------------|
-| `./data/`          | `/app/data/`           | SQLite DB, selfies, ZIPs, results |
-| `./mlflow_tracking/` | `/app/mlflow_tracking/` | MLflow SQLite + artifacts      |
+| Host path            | Container path         | Contents                              |
+|----------------------|------------------------|---------------------------------------|
+| `./data/`            | `/app/data/`           | SQLite DB, selfies, ZIPs, results     |
+| `./mlflow_tracking/` | `/mlflow_tracking/`    | MLflow experiments & run artifacts    |
 
 ---
 
@@ -135,11 +141,28 @@ Frontend: http://localhost:8501
 | `PUT`  | `/profile/selfie` | ✅ | Update selfie image |
 | `POST` | `/jobs/upload` | ✅ | Upload photo ZIP → create curation job |
 | `GET`  | `/jobs/history` | ✅ | List all jobs for current user |
-| `GET`  | `/jobs/{id}/status` | ✅ | Poll job status |
+| `GET`  | `/jobs/{id}/status` | ✅ | Poll job status + real-time progress |
 | `GET`  | `/jobs/{id}/download` | ✅ | Download curated result ZIP |
 | `GET`  | `/selfies/{user_id}.jpg` | — | Serve selfie image (static) |
 
 Full interactive docs available at `/docs` (Swagger UI) or `/redoc`.
+
+### Job Status Response
+
+`GET /jobs/{id}/status` returns real-time progress fields while processing:
+
+```json
+{
+  "job_id": 1,
+  "status": "processing",
+  "updated_at": "2026-04-19T15:00:00",
+  "total_photos": 120,
+  "processed_photos": 60,
+  "matched_photos": 3
+}
+```
+
+The Streamlit dashboard auto-polls this endpoint every 3 seconds and renders a live progress bar.
 
 ---
 
@@ -151,7 +174,7 @@ ZIP archive
     ▼
 Extract images (.jpg .jpeg .png .webp)
     │
-    ▼ (per image)
+    ▼ (per image, progress reported every 10 photos)
 FaceDetector.detect()          ← InsightFace RetinaFace
     │  returns 512-dim ArcFace embedding of largest face
     ▼
@@ -184,7 +207,7 @@ _TOP_K     = 500    # max candidates to rank
 
 ### MLflow Tracking
 
-Each job logs the following to `mlflow_tracking/mlflow.db`:
+Each completed job logs the following via the MLflow tracking server (`http://mlflow:5000` in Docker):
 
 | Type | Name | Value |
 |------|------|-------|
@@ -196,11 +219,9 @@ Each job logs the following to `mlflow_tracking/mlflow.db`:
 | metric | `matched_count` | photos matching the selfie |
 | metric | `processing_time_seconds` | wall-clock time |
 
-View the MLflow UI:
-```bash
-mlflow ui --backend-store-uri sqlite:///mlflow_tracking/mlflow.db
-# → http://localhost:5000
-```
+View the MLflow UI at **http://localhost:5000** (served by the `mlflow` Docker service).
+
+> MLflow tracking is **best-effort** — a tracking failure never causes a job to fail or remain stuck.
 
 ---
 
@@ -210,37 +231,45 @@ mlflow ui --backend-store-uri sqlite:///mlflow_tracking/mlflow.db
 automated_photo_curator-final/
 ├── docker-compose.yml
 ├── .env.example
+├── mlflow_tracking/          # MLflow run data (auto-created, git-ignored)
 │
 ├── backend/
 │   ├── Dockerfile
 │   ├── requirements.txt
+│   ├── pytest.ini
+│   ├── tests/
+│   │   ├── conftest.py       # Fixtures: in-memory DB, async client
+│   │   ├── test_auth.py      # Auth endpoint integration tests
+│   │   ├── test_jobs.py      # Job lifecycle integration tests
+│   │   └── test_ml_pipeline.py  # ML unit tests (detector/embedder/indexer/searcher)
 │   └── app/
-│       ├── main.py          # FastAPI app, CORS, static files
-│       ├── config.py        # paths, JWT settings, env vars
-│       ├── database.py      # SQLAlchemy engine + get_db()
-│       ├── models.py        # User, Job ORM models
-│       ├── schemas.py       # Pydantic v2 response schemas
-│       ├── auth.py          # JWT + bcrypt utilities
+│       ├── main.py           # FastAPI app, CORS, static files mount
+│       ├── config.py         # Paths, JWT settings, env vars (incl. MLFLOW_TRACKING_URI)
+│       ├── database.py       # SQLAlchemy engine + get_db()
+│       ├── models.py         # User, Job ORM models (incl. progress columns)
+│       ├── schemas.py        # Pydantic v2 response schemas
+│       ├── auth.py           # JWT + bcrypt utilities
 │       ├── routers/
-│       │   ├── auth.py      # POST /auth/register|login
-│       │   ├── profile.py   # GET|PUT /profile/*
-│       │   └── jobs.py      # POST|GET /jobs/* + ML pipeline
+│       │   ├── auth.py       # POST /auth/register|login
+│       │   ├── profile.py    # GET|PUT /profile/*
+│       │   └── jobs.py       # POST|GET /jobs/* + ML pipeline + progress tracking
 │       └── ml/
-│           ├── detector.py  # InsightFace singleton + face detect
-│           ├── embedder.py  # L2-normalised ArcFace embedding
-│           ├── indexer.py   # ZIP → FAISS index builder
-│           └── searcher.py  # FAISS similarity search
+│           ├── detector.py   # InsightFace singleton + face detect
+│           ├── embedder.py   # L2-normalised ArcFace embedding
+│           ├── indexer.py    # ZIP → FAISS index builder (with progress_callback)
+│           └── searcher.py   # FAISS similarity search
 │
 ├── frontend/
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── app.py               # Entry point, auth routing
+│   ├── app.py                # Entry point, Login/Register tabs, auth routing
 │   ├── pages/
-│   │   ├── 1_register.py   # Standalone register page
-│   │   ├── 2_dashboard.py  # Upload + job tracking
-│   │   └── 3_profile.py    # Profile info + selfie update
+│   │   ├── 1_register.py    # Standalone register page
+│   │   ├── 2_dashboard.py   # Upload + live job tracking + history cards
+│   │   └── 3_profile.py     # Profile info + circular selfie + selfie update
 │   └── utils/
-│       └── api_client.py   # HTTP client wrapper
+│       ├── api_client.py    # HTTP client wrapper (JWT-aware)
+│       └── theme.py         # Custom CSS injection (Inter font, hover effects)
 │
 └── data/                    # Created automatically at runtime
     ├── app.db
@@ -258,5 +287,17 @@ automated_photo_curator-final/
 |----------|---------|-------------|
 | `SECRET_KEY` | `dev-secret-key` | JWT signing key — **change in production** |
 | `BACKEND_URL` | `http://localhost:8000` | Backend URL used by the Streamlit frontend |
+| `MLFLOW_TRACKING_URI` | `file:///{project}/mlflow_tracking` | MLflow tracking server URI — set to `http://mlflow:5000` automatically in Docker |
 
 Set these in `.env` (copy from `.env.example`) or pass directly to Docker Compose.
+
+### Running Tests
+
+```bash
+# Inside the running backend container
+docker exec photo_curator_backend python -m pytest --tb=short -q
+
+# Or locally (with venv activated)
+cd backend
+pytest --tb=short -q
+```
