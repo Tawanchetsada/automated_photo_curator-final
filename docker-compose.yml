@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.21.3
+    container_name: photo_curator_mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlflow_tracking:/mlflow_tracking
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////mlflow_tracking/mlflow.db
+      --host 0.0.0.0
+      --port 5000
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: photo_curator_backend
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./data:/app/data
+      - ./mlflow_tracking:/app/mlflow_tracking
+    environment:
+      - SECRET_KEY=change-me-in-production
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - mlflow
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: photo_curator_frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped

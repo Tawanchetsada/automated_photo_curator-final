@@ -1,0 +1,40 @@
+# Web framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+
+# Database
+sqlalchemy==2.0.40
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# Pydantic v2 (bundled with FastAPI, pinned for clarity)
+pydantic[email]==2.11.3
+
+# Multipart form / file uploads
+python-multipart==0.0.20
+
+# ML - Face Detection & Recognition
+insightface==0.7.3
+onnxruntime==1.20.1
+
+# Vector Search
+faiss-cpu==1.9.0
+
+# Image processing
+opencv-python-headless==4.11.0.86
+numpy==1.26.4
+Pillow==11.2.1
+
+# Experiment Tracking
+mlflow==2.21.3
+
+# ZIP processing
+zipfile36==0.1.3
+
+# Testing
+pytest==8.3.5
+pytest-asyncio==0.25.3
+httpx==0.28.1
