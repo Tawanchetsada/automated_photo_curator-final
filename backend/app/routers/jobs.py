@@ -1,10 +1,11 @@
 """
 routers/jobs.py — Photo curation job endpoints.
 
-POST /jobs/upload    – upload a ZIP and enqueue a background curation job
-GET  /jobs/history   – list all jobs for the current user
-GET  /jobs/{id}/status   – poll job status
-GET  /jobs/{id}/download – download the curated result ZIP
+POST   /jobs/upload          – upload a ZIP and enqueue a background curation job
+GET    /jobs/history         – list all jobs for the current user
+GET    /jobs/{id}/status     – poll job status
+GET    /jobs/{id}/download   – download the curated result ZIP
+DELETE /jobs/{id}            – delete a job record and associated files
 """
 
 import logging
@@ -324,3 +325,34 @@ def download_result(
         media_type="application/zip",
         filename=f"curated_{job_id}.zip",
     )
+
+
+@router.delete(
+    "/{job_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a job record and its associated files",
+)
+def delete_job(
+    job_id:       int,
+    current_user: User    = Depends(get_current_user),
+    db:           Session = Depends(get_db),
+) -> None:
+    job = db.query(Job).filter(Job.id == job_id).first()
+    _assert_job_belongs_to_user(job, current_user.id)
+
+    # Clean up files (best-effort — don't fail if already gone)
+    for path_attr in (job.zip_path, job.result_path):
+        if path_attr:
+            try:
+                Path(path_attr).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+    if job.faiss_index_path:
+        try:
+            shutil.rmtree(job.faiss_index_path, ignore_errors=True)
+        except Exception:
+            pass
+
+    db.delete(job)
+    db.commit()

@@ -16,7 +16,7 @@ from utils.theme import apply_custom_theme
 
 st.set_page_config(
     page_title="Photo Curator",
-    page_icon="📸",
+    page_icon="camera",
     layout="centered",
     initial_sidebar_state="expanded",
 )
@@ -28,14 +28,14 @@ client = ApiClient()
 
 # ── Sidebar (rendered on every page via app.py) ───────────────────────────────
 with st.sidebar:
-    st.markdown("## 📸 Photo Curator")
+    st.markdown("## Photo Curator")
     st.markdown("---")
     if st.session_state.get("token"):
-        st.success("✅ Logged in")
-        st.page_link("pages/2_dashboard.py", label="📊 Dashboard")
-        st.page_link("pages/3_profile.py",   label="👤 Profile")
+        st.success("Logged in")
+        st.page_link("pages/2_dashboard.py", label="Dashboard")
+        st.page_link("pages/3_profile.py",   label="Profile")
         st.markdown("---")
-        if st.button("🚪 Logout", use_container_width=True):
+        if st.button("Logout", use_container_width=True):
             st.session_state.clear()
             st.rerun()
     else:
@@ -69,41 +69,63 @@ def _do_register(
 
 # ── Main content ──────────────────────────────────────────────────────────────
 if not st.session_state.get("token"):
-    # ── Not logged in: Login / Register tabs ─────────────────────────────────
-    st.title("📸 Automated Photo Curator")
+    # ── Hero header ───────────────────────────────────────────────────────────
     st.markdown(
-        "Upload your event photos and let AI find every shot that features **you**."
+        """
+        <div class="hero-header">
+            <div class="hero-logo">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+                     xmlns="http://www.w3.org/2000/svg">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0
+                           0 1 2 2z" stroke="white" stroke-width="2" stroke-linecap="round"
+                           stroke-linejoin="round"/>
+                  <circle cx="12" cy="13" r="4" stroke="white" stroke-width="2"/>
+                </svg>
+            </div>
+            <h1 class="hero-title">Photo Curator</h1>
+            <p class="hero-sub">Upload your event photos and let AI find every shot featuring <strong>you</strong>.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    st.divider()
 
-    tab_login, tab_register = st.tabs(["🔑 Login", "📝 Register"])
+    # ── Auth card ─────────────────────────────────────────────────────────────
+    _, col_card, _ = st.columns([1, 10, 1])
+    with col_card:
+        tab_login, tab_register = st.tabs(["Sign In", "Create Account"])
 
-    # ── Login tab ─────────────────────────────────────────────────────────────
-    with tab_login:
-        _, col_login, _ = st.columns([1, 2, 1])
-        with col_login:
+        # ── Login tab ─────────────────────────────────────────────────────────
+        with tab_login:
+            st.markdown("<div class='auth-section'>", unsafe_allow_html=True)
             with st.form("login_form"):
-                username = st.text_input("Username", placeholder="your_username")
-                password = st.text_input("Password", type="password")
-                submitted = st.form_submit_button("Login", use_container_width=True)
+                st.markdown("#### Welcome back")
+                username = st.text_input("Username", placeholder="your_username", label_visibility="collapsed")
+                st.caption("Username")
+                password = st.text_input("Password", type="password", placeholder="••••••••", label_visibility="collapsed")
+                st.caption("Password")
+                submitted = st.form_submit_button("Sign In", use_container_width=True)
             if submitted:
                 if not username or not password:
                     st.error("Please enter both username and password.")
                 else:
                     _do_login(username, password)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Register tab ──────────────────────────────────────────────────────────
-    with tab_register:
-        _, col_reg, _ = st.columns([1, 2, 1])
-        with col_reg:
+        # ── Register tab ──────────────────────────────────────────────────────
+        with tab_register:
+            st.markdown("<div class='auth-section'>", unsafe_allow_html=True)
             with st.form("register_form"):
-                r_username = st.text_input("Username", placeholder="your_username", key="r_u")
-                r_email    = st.text_input("Email",    placeholder="you@example.com")
-                r_password = st.text_input("Password", type="password", key="r_p")
+                st.markdown("#### Create your account")
+                r_username = st.text_input("Username", placeholder="your_username", key="r_u", label_visibility="collapsed")
+                st.caption("Username")
+                r_email    = st.text_input("Email", placeholder="you@example.com", label_visibility="collapsed")
+                st.caption("Email")
+                r_password = st.text_input("Password", type="password", placeholder="••••••••", key="r_p", label_visibility="collapsed")
+                st.caption("Password")
                 r_selfie   = st.file_uploader(
-                    "Selfie (required)",
+                    "Upload a selfie photo (JPG / PNG)",
                     type=["jpg", "jpeg", "png", "webp"],
-                    help="A clear photo of your face so the AI can recognise you.",
+                    help="A clear front-facing photo so the AI can recognise you in event albums.",
                 )
                 submitted = st.form_submit_button(
                     "Create Account", use_container_width=True
@@ -115,17 +137,18 @@ if not st.session_state.get("token"):
                     st.error("All fields are required.")
                 else:
                     _do_register(r_username, r_email, r_password, r_selfie)
+            st.markdown("</div>", unsafe_allow_html=True)
 
 else:
     # ── Logged in: home / quick-links ─────────────────────────────────────────
-    st.title("📸 Photo Curator")
+    st.title("Photo Curator")
     st.markdown("Welcome back! Choose a section from the sidebar or the buttons below.")
 
     col1, col2 = st.columns(2)
     with col1:
-        st.page_link("pages/2_dashboard.py", label="📊 Dashboard", icon="📊")
+        st.page_link("pages/2_dashboard.py", label="Dashboard")
     with col2:
-        st.page_link("pages/3_profile.py", label="👤 Profile", icon="👤")
+        st.page_link("pages/3_profile.py", label="Profile")
 
     st.divider()
     st.info(

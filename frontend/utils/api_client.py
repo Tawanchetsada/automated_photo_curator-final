@@ -129,3 +129,11 @@ class ApiClient:
         )
         _raise_for_status(resp)
         return resp.content
+
+    def delete_job(self, job_id: int) -> None:
+        """DELETE /jobs/{job_id} — remove a job record and its files."""
+        resp = requests.delete(
+            f"{self.base_url}/jobs/{job_id}",
+            headers=self._auth_headers(),
+        )
+        _raise_for_status(resp)

@@ -21,19 +21,19 @@ client = ApiClient()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 📸 Photo Curator")
+    st.markdown("## Photo Curator")
     st.markdown("---")
-    st.page_link("pages/2_dashboard.py", label="📊 Dashboard")
-    st.page_link("pages/3_profile.py",   label="👤 Profile")
+    st.page_link("pages/2_dashboard.py", label="Dashboard")
+    st.page_link("pages/3_profile.py",   label="Profile")
     st.markdown("---")
-    if st.button("🚪 Logout", use_container_width=True):
+    if st.button("Logout", use_container_width=True):
         st.session_state.clear()
         st.switch_page("app.py")
 
 # ── Load profile ──────────────────────────────────────────────────────────────
 apply_custom_theme()
 
-st.title("👤 Profile")
+st.title("Profile")
 st.divider()
 
 try:
@@ -47,11 +47,11 @@ except Exception as exc:
 col_info, col_selfie = st.columns([3, 2])
 
 with col_info:
-    st.subheader(f"👋 {profile['username']}")
-    st.markdown(f"📧 **Email:** {profile['email']}")
-    st.markdown(f"📅 **Member since:** `{profile['created_at'][:10]}`")
+    st.subheader(profile['username'])
+    st.markdown(f"**Email:** {profile['email']}")
+    st.markdown(f"**Member since:** `{profile['created_at'][:10]}`")
     st.markdown(
-        f"🖼️ **Selfie on file:** {'✅ Yes' if profile['has_selfie'] else '❌ No'}"
+        f"**Selfie on file:** {'Yes' if profile['has_selfie'] else 'No'}"
     )
 
 with col_selfie:
@@ -78,7 +78,7 @@ with col_selfie:
 st.divider()
 
 # ── Update selfie ─────────────────────────────────────────────────────────────
-st.subheader("🔄 Update Selfie")
+st.subheader("Update Selfie")
 st.markdown(
     "Upload a new front-facing photo to improve recognition accuracy. "
     "All future jobs will use this image."
@@ -94,11 +94,12 @@ if st.button(
     "Update Selfie",
     disabled=(new_selfie is None),
     use_container_width=True,
+    type="primary",
 ):
     try:
         with st.spinner("Uploading new selfie…"):
             client.update_selfie(new_selfie)
-        st.success("✅ Selfie updated! Future jobs will use your new photo.")
+        st.success("Selfie updated! Future jobs will use your new photo.")
         st.rerun()
     except Exception as exc:
         st.error(f"Update failed: {exc}")

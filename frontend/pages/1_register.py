@@ -21,12 +21,12 @@ client = ApiClient()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 📸 Photo Curator")
+    st.markdown("## Photo Curator")
     st.markdown("---")
     st.info("Please log in or register to continue.")
 
 # ── Page ──────────────────────────────────────────────────────────────────────
-st.title("📝 Create Account")
+st.title("Create Account")
 st.markdown(
     "Register to start curating your photos with AI. "
     "Already have an account? [Log in here](/)"
@@ -59,7 +59,7 @@ with col_center:
                 with st.spinner("Logging in…"):
                     token = client.login(username, password)
                 st.session_state["token"] = token
-                st.success("✅ Account created! Redirecting to Dashboard…")
+                st.success("Account created! Redirecting to Dashboard…")
                 st.switch_page("pages/2_dashboard.py")
             except Exception as exc:
                 st.error(f"Registration failed: {exc}")
