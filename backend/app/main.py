@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -5,6 +7,12 @@ from fastapi.staticfiles import StaticFiles
 from app.config import SELFIE_DIR
 from app.database import Base, engine
 from app.routers import auth, jobs, profile
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
 
 # ── Create all tables on startup ──────────────────────────────────────────────
 Base.metadata.create_all(bind=engine)

@@ -48,7 +48,7 @@ def _do_login(username: str, password: str) -> None:
         with st.spinner("Logging in…"):
             token = client.login(username, password)
         st.session_state["token"] = token
-        st.rerun()
+        st.switch_page("pages/2_dashboard.py")
     except Exception as exc:
         st.error(f"Login failed: {exc}")
 
@@ -62,7 +62,7 @@ def _do_register(
         with st.spinner("Logging in…"):
             token = client.login(username, password)
         st.session_state["token"] = token
-        st.rerun()
+        st.switch_page("pages/2_dashboard.py")
     except Exception as exc:
         st.error(f"Registration failed: {exc}")
 
